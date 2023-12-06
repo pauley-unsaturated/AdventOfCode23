@@ -13,23 +13,56 @@ let input = try! String(contentsOfFile: file, encoding: .utf8).split(separator: 
 
 typealias Coord = (Int,Int)
 
-// Hash all of the symbol coords
-let symbolCoords : Set<Int> = input.enumerated().flatMap { (idx, line) in
+// PART 1
+let symbolCoords : Set<Int> = .init(input.enumerated().flatMap { (idx, line) in
     Matches(of: /[^\d.]/, inString: line).map{ match in
         (idx, match.range.lowerBound.utf16Offset(in:line)) |> coordHash
     }
-}.reduce(into:.init()){$0.insert($1)}
+})
 
 let part_1 = input.enumerated().flatMap { (idx, line) in
     Matches(of: /\d+/, inString: line).compactMap { match in
         let begin = match.range.lowerBound.utf16Offset(in:line)
         let coord = (idx, begin)
         let len = line[match.range].count
-        return coordFind(coord, len, db: symbolCoords) ? Int(match.0)! : nil
+        return coordFilter(coord, len, db: symbolCoords) ? Int(match.0)! : nil
     }
 }.reduce(0,+)
 
 print("Part 1: \(part_1)")
+
+
+// PART 2
+
+struct Gear {
+    var coord: Coord
+    var numbers: [Int] = []
+}
+
+var gearCoords : [Int: Gear] = input.enumerated().flatMap { (idx, line) in
+    Matches(of: /\*/, inString: line).map{ match in
+        (idx, match.range.lowerBound.utf16Offset(in:line))
+    }
+}.reduce(into: [:]) { $0[coordHash($1)] = Gear(coord:$1)}
+
+let gearCoordsHashes = Set(gearCoords.keys)
+
+let part_2 = input.enumerated().flatMap { (idx, line) in
+    Matches(of: /\d+/, inString: line).flatMap { match in
+        let begin = match.range.lowerBound.utf16Offset(in:line)
+        let coord = (idx, begin)
+        let len = line[match.range].count
+        return coordFind(coord, len, db: gearCoordsHashes).map {
+            ($0, Int(match.0)!)
+        }
+    }
+}
+.reduce(into: gearCoords) { $0[coordHash($1.0)]?.numbers.append($1.1) }.values
+.filter{$0.numbers.count == 2}
+.map{$0.numbers.reduce(1,*)}.reduce(0,+)
+
+print("Part 2: \(part_2)")
+
 
 
 ////// HELPERS //////
@@ -37,10 +70,18 @@ print("Part 1: \(part_1)")
 // Coord helpers
 func coordHash(_ coord: Coord) -> Int { coord.0 << 16 | coord.1 }
 
-func coordFind(_ coord: Coord, _ len: Int, db: Set<Int>) -> Bool {
+func coordFilter(_ coord: Coord, _ len: Int, db: Set<Int>) -> Bool {
     return ((coord.0-1)...(coord.0+1)).first{ row in
         ((coord.1-1)...(coord.1+len)).first{ symbolCoords.contains(coordHash((row,$0))) } != nil
     } != nil
+}
+
+func coordFind(_ coord: Coord, _ len: Int, db: Set<Int>) -> [Coord]{
+    return ((coord.0-1)...(coord.0+1)).flatMap { row in
+        ((coord.1-1)...(coord.1+len)).compactMap {
+            symbolCoords.contains(coordHash((row,$0))) ? (row,$0) : nil
+        }
+    }
 }
 
 
