@@ -31,7 +31,6 @@ let part_1 = input.enumerated().flatMap { (idx, line) in
 
 print("Part 1: \(part_1)")
 
-
 // PART 2
 
 struct Gear {
